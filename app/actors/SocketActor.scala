@@ -1,8 +1,7 @@
 package actors
 
 import akka.actor._
-import common._
-import common.Protocol._
+import shogi.Protocol._
 
 object SocketActor {
   def props(sock: ActorRef, gate: ActorRef) = Props(new SocketActor(sock, gate))
@@ -10,11 +9,14 @@ object SocketActor {
 
 class SocketActor(sock: ActorRef, gate: ActorRef) extends Actor {
   def receive = {
-    case ClientRequest(tpe, body) => tpe match {
-      case "subs" => gate ! RegisterSocket(sock, body)
-      case "move" => gate ! PlayerMove(sock, body)
-    }
+    case ClientRequest("subs", body, Some(isBlack)) => gate ! RegisterSocket(sock, body, isBlack)
+    case ClientRequest("move", body, None) => gate ! PlayerMove(sock, body)
+    case ClientRequest("ping", body, None) =>
 
-    case _ => println("wrong message type")
+    case _ => println("Sock: wrong message type")
+  }
+
+  override def postStop() {
+    gate ! UnregisterSocket(sock)
   }
 }

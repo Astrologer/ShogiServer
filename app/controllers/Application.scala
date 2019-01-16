@@ -12,9 +12,10 @@ import play.api.mvc.WebSocket.MessageFlowTransformer
 import akka.actor.ActorRef
 
 import actors.SocketActor
-import common.Protocol._
+import shogi.Protocol._
 
-class Application @Inject()(@Named("gate-actor") gate: ActorRef, cc: ControllerComponents)(implicit system: ActorSystem, mat: Materializer) extends AbstractController(cc) {
+class Application @Inject()(@Named("gate-actor") gate: ActorRef, cc: ControllerComponents)
+    (implicit system: ActorSystem, mat: Materializer) extends AbstractController(cc) {
   implicit val inEventFormat = Json.format[ClientRequest]
   implicit val outEventFormat = Json.format[GameState]
   implicit val messageFlowTransformer = MessageFlowTransformer.jsonMessageFlowTransformer[ClientRequest, GameState]
