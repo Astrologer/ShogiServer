@@ -2,6 +2,7 @@ package shogi
 
 import play.api.Configuration
 import javax.inject.{Singleton, Inject, Named}
+import scala.collection.JavaConverters._
 
 import redis.clients.jedis.JedisPubSub
 import redis.clients.jedis.JedisPool
@@ -12,7 +13,7 @@ import redis.clients.jedis.Jedis
  * gameId - INCR on `gameIndex` during game creation
  *
  * Fields:
- *    gameIndex - <index> // INCR
+ *    + gameIndex - <index> // INCR
  *    <gameId>:blackPlayer - "<timestaml><actorId>" // SETNX, cleanup by owner on socket close
  *    <gameId>:whitePlayer - "<timestaml><actorId>" // SETNX, cleanup by owner on socket close
  *    <gameId>:move - "black" / "white" // updated only by player with the same color
@@ -22,6 +23,7 @@ import redis.clients.jedis.Jedis
  */
 class StorageClient(pool: JedisPool, conf: Configuration) {
   val channel: String = conf.get[String]("redis.channel")
+  val gameIndex: String = conf.get[String]("redis.gameIndex")
 
   class MessageHandler(handler: String => Unit) extends JedisPubSub {
     override def onMessage(channel: String, message: String) {
@@ -38,6 +40,15 @@ class StorageClient(pool: JedisPool, conf: Configuration) {
     }
   }
 
+  def getMoveKey(gameId: String): String = s"${gameId}:move"
+  def getStateKey(gameId: String): String = s"${gameId}:state"
+  def getHistoryKey(gameId: String): String = s"${gameId}:history"
+
+  def getPlayerKey(gameId: String, isBlack: Boolean): String = {
+    val color = if (isBlack) "blackPlayer" else "whitePlayer"
+    s"${gameId}:${color}"
+  }
+
   def publish(json: String) {
     query[Unit] { jedis =>
       jedis.publish(channel, json)
@@ -47,6 +58,70 @@ class StorageClient(pool: JedisPool, conf: Configuration) {
   def subscribe(handler: String => Unit) {
     query[Unit] { jedis =>
       jedis.subscribe(new MessageHandler(handler), channel)
+    }
+  }
+
+  def newGameId(): Long = {
+    query[Long] { jedis =>
+      jedis.incr(gameIndex)
+    }
+  }
+
+  def flipMove(gameId: String, isBlack: Boolean) {
+    query[Unit] { jedis =>
+      jedis.set(getMoveKey(gameId), if (isBlack) "white" else "black")
+    }
+  }
+
+  def isBlackMove(gameId: String): Boolean = {
+    query[Boolean] { jedis =>
+      jedis.get(getMoveKey(gameId)) == "black"
+    }
+  }
+
+  def setPlayer(gameId: String, playerId: String, isBlack: Boolean): Boolean = {
+    query[Boolean] { jedis =>
+      jedis.setnx(getPlayerKey(gameId, isBlack), playerId.toString) == 1
+    }
+  }
+
+  def isPlayer(gameId: String, playerId: String, isBlack: Boolean): Boolean = {
+    query[Boolean] { jedis =>
+      jedis.get(getPlayerKey(gameId, isBlack)) == playerId.toString
+    }
+  }
+
+  def isActivePlayer(gameId: String, playerId: String, isBlack: Boolean): Boolean = {
+    isPlayer(gameId, playerId, isBlack) && isBlackMove(gameId) == isBlack
+  }
+
+  def removePlayer(gameId: String, isBlack: Boolean) {
+    query[Unit] { jedis =>
+      jedis.del(getPlayerKey(gameId, isBlack))
+    }
+  }
+
+  def setState(gameId: String, sfen: String) {
+    query[Unit] { jedis =>
+      jedis.set(getStateKey(gameId), sfen)
+    }
+  }
+
+  def getState(gameId: String): String = {
+    query[String] { jedis =>
+      jedis.get(getStateKey(gameId))
+    }
+  }
+
+  def pushMove(gameId: String, move: String) {
+    query[Unit] { jedis =>
+      jedis.rpush(getHistoryKey(gameId), move)
+    }
+  }
+
+  def getMoves(gameId: String): List[String] = {
+    query[List[String]] { jedis =>
+      jedis.lrange(getHistoryKey(gameId), 0, -1).asScala.toList
     }
   }
 }
