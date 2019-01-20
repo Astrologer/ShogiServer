@@ -1,0 +1,5 @@
+{
+  "name": "Shogi Server",
+  "description": "Simple shogi server to play online",
+  "image": "heroku/scala"
+}
