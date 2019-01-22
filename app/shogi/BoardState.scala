@@ -37,8 +37,8 @@ object BoardState {
 }
 
 class BoardState(board: Array[Array[Option[String]]],
-                isBlackMove: Boolean,
-                hands: Seq[String]) {
+                 val isBlackMove: Boolean,
+                 hands: Seq[String]) {
 
   def isBlack(piece: String): Boolean = piece.forall(!_.isLower)
   def getBoard = board
@@ -63,7 +63,11 @@ class BoardState(board: Array[Array[Option[String]]],
 
   def isLegalMove(move: String): Boolean = {
     val m = Move(move, isBlackMove)
-    m.isLigal && noCollisions(m)
+    val rightMove = m.isLigal
+    val rightPlace = noCollisions(m)
+
+    println(s"$rightMove $rightPlace")
+    rightMove && rightPlace
   }
 
   def makeMove(m: Move) {

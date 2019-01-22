@@ -40,7 +40,6 @@ class StorageClient(pool: JedisPool, conf: Configuration) {
     }
   }
 
-  def getMoveKey(gameId: String): String = s"${gameId}:move"
   def getStateKey(gameId: String): String = s"${gameId}:state"
   def getHistoryKey(gameId: String): String = s"${gameId}:history"
 
@@ -67,18 +66,6 @@ class StorageClient(pool: JedisPool, conf: Configuration) {
     }
   }
 
-  def flipMove(gameId: String, isBlack: Boolean) {
-    query[Unit] { jedis =>
-      jedis.set(getMoveKey(gameId), if (isBlack) "white" else "black")
-    }
-  }
-
-  def isBlackMove(gameId: String): Boolean = {
-    query[Boolean] { jedis =>
-      jedis.get(getMoveKey(gameId)) == "black"
-    }
-  }
-
   def setPlayer(gameId: String, playerId: String, isBlack: Boolean): Boolean = {
     query[Boolean] { jedis =>
       jedis.setnx(getPlayerKey(gameId, isBlack), playerId.toString) == 1
@@ -89,10 +76,6 @@ class StorageClient(pool: JedisPool, conf: Configuration) {
     query[Boolean] { jedis =>
       jedis.get(getPlayerKey(gameId, isBlack)) == playerId.toString
     }
-  }
-
-  def isActivePlayer(gameId: String, playerId: String, isBlack: Boolean): Boolean = {
-    isPlayer(gameId, playerId, isBlack) && isBlackMove(gameId) == isBlack
   }
 
   def removePlayer(gameId: String, isBlack: Boolean) {

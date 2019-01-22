@@ -9,11 +9,18 @@ object SocketActor {
 
 class SocketActor(sock: ActorRef, gate: ActorRef) extends Actor {
   def receive = {
-    case ClientRequest("subs", body, Some(isBlack)) => gate ! RegisterSocket(sock, body, isBlack)
-    case ClientRequest("move", body, None) => gate ! PlayerMove(sock, body)
-    case ClientRequest("ping", body, None) =>
+    case m: RawMessage => {
+      println(s"message <- $m")
+      m.toMessage.map(_ match {
+        case SubscribeMessage(gameId, isBlack) => gate ! RegisterSocket(sock, gameId, isBlack.toBoolean)
+        case MoveMessage(gameId, move) => gate ! PlayerMove(sock, move)
+        case PingMessage(id) => sock ! PongMessage(id).toRaw
 
-    case _ => println("Sock: wrong message type")
+        case StateMessage(gameId, sfen, action) =>
+        case PongMessage(id) =>
+      })
+    }
+    case m @ _ => println(s"Sock: wrong message type ${m}")
   }
 
   override def postStop() {

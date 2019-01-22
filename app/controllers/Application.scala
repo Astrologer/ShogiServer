@@ -16,15 +16,14 @@ import shogi.Protocol._
 
 class Application @Inject()(@Named("gate-actor") gate: ActorRef, cc: ControllerComponents)
     (implicit system: ActorSystem, mat: Materializer) extends AbstractController(cc) {
-  implicit val inEventFormat = Json.format[ClientRequest]
-  implicit val outEventFormat = Json.format[GameState]
-  implicit val messageFlowTransformer = MessageFlowTransformer.jsonMessageFlowTransformer[ClientRequest, GameState]
+  implicit val eventFormat = Json.format[RawMessage]
+  implicit val messageFlowTransformer = MessageFlowTransformer.jsonMessageFlowTransformer[RawMessage, RawMessage]
 
   def index = Action { implicit request =>
     Ok("Your new Scala application is ready!")
   }
 
-  def socket = WebSocket.accept[ClientRequest, GameState] { request =>
+  def socket = WebSocket.accept[RawMessage, RawMessage] { request =>
     ActorFlow.actorRef { sock =>
       SocketActor.props(sock, gate)
     }
