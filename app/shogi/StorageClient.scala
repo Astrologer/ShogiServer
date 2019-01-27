@@ -3,6 +3,7 @@ package shogi
 import play.api.Configuration
 import javax.inject.{Singleton, Inject, Named}
 import scala.collection.JavaConverters._
+import scala.util.Random
 
 import redis.clients.jedis.JedisPubSub
 import redis.clients.jedis.JedisPool
@@ -22,6 +23,7 @@ import redis.clients.jedis.Jedis
  *
  */
 class StorageClient(pool: JedisPool, conf: Configuration) {
+  val DEFAULT_SFEN = "lnsgkgsnl/1r5b1/ppppppppp/9/9/9/PPPPPPPPP/1B5R1/LNSGKGSNL b"
   val channel: String = conf.get[String]("redis.channel")
   val gameIndex: String = conf.get[String]("redis.gameIndex")
 
@@ -46,6 +48,12 @@ class StorageClient(pool: JedisPool, conf: Configuration) {
   def getPlayerKey(gameId: String, isBlack: Boolean): String = {
     val color = if (isBlack) "blackPlayer" else "whitePlayer"
     s"${gameId}:${color}"
+  }
+
+  def createGame(): String = {
+    val gameId = f"${Random.alphanumeric.take(8).toSeq.mkString}${newGameId}%08d"
+    setState(gameId, DEFAULT_SFEN)
+    gameId
   }
 
   def publish(json: String) {
