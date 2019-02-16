@@ -19,6 +19,7 @@ object BoardState {
       items
         .zip(ind)
         .filter(i => !isNum(i._1))
+        .map { case (p, i) => (p.reverse, i) }
     }
 
     val board = Array.fill[Option[String]](9, 9) { None }
@@ -38,9 +39,13 @@ object BoardState {
 
 class BoardState(board: Array[Array[Option[String]]],
                  val isBlackMove: Boolean,
-                 hands: Seq[String]) {
+                 var hands: Seq[String]) {
 
-  def isBlack(piece: String): Boolean = piece.forall(!_.isLower)
+  private def isBlack(piece: String): Boolean = piece.forall(!_.isLower)
+  private def isPromoted(piece: String): Boolean = piece.contains("+")
+  private def capture(p: String): String =
+    (if (isBlack(p)) p.map(_.toLower) else p.map(_.toUpper)).filter(c => c != '+')
+
   def getBoard = board
   // TODO 
   // - check promotion restriction
@@ -73,9 +78,17 @@ class BoardState(board: Array[Array[Option[String]]],
   def makeMove(m: Move) {
     (m.isCapture, m.isDrop) match {
       // drop
-      case (false, true) => throw new Exception("oops, drop")
+      case (false, true) =>
+        board(m.toRow - 1)(m.toCol - 1) = Some(m.piece)
+        hands = hands diff Seq(m.piece)
+
       // capture
-      case (true, false) => throw new Exception("oops, capture")
+      case (true, false) =>
+        val dst = board(m.toRow - 1)(m.toCol - 1)
+        hands = capture(dst.get) +: hands
+        board(m.toRow - 1)(m.toCol - 1) = board(m.fromRow - 1)(m.fromCol - 1)
+        board(m.fromRow - 1)(m.fromCol - 1) = None
+
       //regular move
       case (false, false) =>
         board(m.toRow - 1)(m.toCol - 1) = board(m.fromRow - 1)(m.fromCol - 1)
@@ -83,7 +96,7 @@ class BoardState(board: Array[Array[Option[String]]],
 
       case _ => throw new Exception("oops")
     }
-
+    if (m.withPromotion) board(m.toRow - 1)(m.toCol - 1) = board(m.toRow - 1)(m.toCol - 1).map(_.replaceAll("^\\+*", "+"))
   }
 
   def toSFEN(move: String): String = {
